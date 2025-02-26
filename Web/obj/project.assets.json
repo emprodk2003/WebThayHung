@@ -1684,6 +1684,7 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "dependencies": {
+          "Application": "1.0.0",
           "Microsoft.AspNetCore.Identity": "2.3.0",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "8.0.0",
           "Microsoft.EntityFrameworkCore": "9.0.2",
@@ -4230,23 +4231,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\My PC\\.nuget\\packages\\": {},
+    "C:\\Users\\DUY\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Monweb\\Shopthoitrang\\Web\\Web.csproj",
+      "projectUniqueName": "D:\\WebThayHung\\Web\\Web.csproj",
       "projectName": "Web",
-      "projectPath": "D:\\Monweb\\Shopthoitrang\\Web\\Web.csproj",
-      "packagesPath": "C:\\Users\\My PC\\.nuget\\packages\\",
-      "outputPath": "D:\\Monweb\\Shopthoitrang\\Web\\obj\\",
+      "projectPath": "D:\\WebThayHung\\Web\\Web.csproj",
+      "packagesPath": "C:\\Users\\DUY\\.nuget\\packages\\",
+      "outputPath": "D:\\WebThayHung\\Web\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\My PC\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\DUY\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -4262,11 +4263,11 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "D:\\Monweb\\Shopthoitrang\\Application\\Application.csproj": {
-              "projectPath": "D:\\Monweb\\Shopthoitrang\\Application\\Application.csproj"
+            "D:\\WebThayHung\\Application\\Application.csproj": {
+              "projectPath": "D:\\WebThayHung\\Application\\Application.csproj"
             },
-            "D:\\Monweb\\Shopthoitrang\\Data\\Data.csproj": {
-              "projectPath": "D:\\Monweb\\Shopthoitrang\\Data\\Data.csproj"
+            "D:\\WebThayHung\\Data\\Data.csproj": {
+              "projectPath": "D:\\WebThayHung\\Data\\Data.csproj"
             }
           }
         }
@@ -4318,7 +4319,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.203/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.400/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
