@@ -11,3 +11,16 @@ D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.pdb
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\ref\Application.dll
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.sourcelink.json
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.csproj.AssemblyReference.cache
+D:\WebThayHung\Application\bin\Debug\net8.0\Application.deps.json
+D:\WebThayHung\Application\bin\Debug\net8.0\Application.dll
+D:\WebThayHung\Application\bin\Debug\net8.0\Application.pdb
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.csproj.AssemblyReference.cache
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.AssemblyInfoInputs.cache
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.AssemblyInfo.cs
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.csproj.CoreCompileInputs.cache
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.sourcelink.json
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.dll
+D:\WebThayHung\Application\obj\Debug\net8.0\refint\Application.dll
+D:\WebThayHung\Application\obj\Debug\net8.0\Application.pdb
+D:\WebThayHung\Application\obj\Debug\net8.0\ref\Application.dll
