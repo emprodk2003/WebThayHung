@@ -1,8 +1,8 @@
+using Application.Email.Service;
 using Data.EF;
 using Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Umbraco.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +33,12 @@ builder.Services.Configure<IdentityOptions>(options =>
 {
     options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@.";
 });
-
+// Configure token lifespan
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    // Set token lifespan to 2 hours
+    options.TokenLifespan = TimeSpan.FromHours(2);
+});
 // Configure the Application Cookie settings
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -50,6 +55,7 @@ builder.Services.AddAuthentication()
     options.CallbackPath = "/signin-google";
     // Configure Other Options 
 });
+builder.Services.AddTransient<EmailSenderService>();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

@@ -1,4 +1,5 @@
-﻿using Data.Entities;
+﻿using Application.Email.Service;
+using Data.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -18,10 +19,12 @@ namespace Web.Controllers
         private readonly SignInManager<User> signInManager;
         //Both UserManager and SignInManager services are injected into the AccountController
         //using constructor injection
-        public AccountController(UserManager<User> userManager,SignInManager<User> signInManager)
+        private readonly EmailSenderService emailSender;
+        public AccountController(UserManager<User> userManager,SignInManager<User> signInManager, EmailSenderService emailSenderService)
         {
             this.userManager = userManager;
             this.signInManager = signInManager;
+            this.emailSender = emailSenderService;
         }
         /// <summary>
         /// //////////////////////////////// Register //////////////////////////
@@ -43,23 +46,37 @@ namespace Web.Controllers
                     UserName = model.Email,
                     Email = model.Email
                 };
+
                 // Store user data in AspNetUsers database table
                 var result = await userManager.CreateAsync(user, model.Password);
+
                 // If user is successfully created, sign-in the user using
                 // SignInManager and redirect to index action of HomeController
                 if (result.Succeeded)
                 {
-                    await signInManager.SignInAsync(user, isPersistent: false);
-                    return RedirectToAction("index", "home");
+                    //Then send the Confirmation Email to the User
+                    await SendConfirmationEmail(model.Email, user);
+
+                    // If the user is signed in and in the Admin role, then it is
+                    // the Admin user that is creating a new user. 
+                    // So, redirect the Admin user to ListUsers action of Administration Controller
+                    if (signInManager.IsSignedIn(User) && User.IsInRole("Admin"))
+                    {
+                        return RedirectToAction("ListUsers", "Administration");
+                    }
+
+                    //If it is not Admin user, then redirect the user to RegistrationSuccessful View
+                    return View("RegistrationSuccessful");
                 }
+
                 // If there are any errors, add them to the ModelState object
                 // which will be displayed by the validation summary tag helper
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
-                    Console.WriteLine($"Error: {error.Code} - {error.Description}");
                 }
             }
+
             return View(model);
         }
 
@@ -81,44 +98,65 @@ namespace Web.Controllers
 
             return View(model);
         }
-        [HttpPost]
-        public async Task<IActionResult> Login(LoginViewModel model, string? ReturnUrl)
+       [HttpPost]
+public async Task<IActionResult> Login(LoginViewModel model)
+{
+    if (ModelState.IsValid)
+    {
+        // 1. Find user by email
+        var user = await userManager.FindByEmailAsync(model.Email);
+        if (user == null)
         {
-            if (ModelState.IsValid)
-            {
-                var result = await signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
-
-                if (result.Succeeded)
-                {
-                    if (!string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl))
-                    {
-                        return Redirect(ReturnUrl);
-                    }
-
-                    // Handle successful login
-                    return RedirectToAction(nameof(HomeController.Index), "Home");
-                }
-                if (result.RequiresTwoFactor)
-                {
-                    // Handle two-factor authentication case
-                }
-                if (result.IsLockedOut)
-                {
-                    // Handle lockout scenario
-                }
-                else
-                {
-                    model.ExternalLogins = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
-                    // Handle failure
-                    ModelState.AddModelError(string.Empty, "Invalid login attempt.");
-                    return View(model);
-                }
-            }
-
-            // If we got this far, something failed, redisplay form
+            // Avoid enumerating which part is invalid, just show generic error
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
             model.ExternalLogins = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
             return View(model);
         }
+
+        // 2. Check password
+        var result = await signInManager.CheckPasswordSignInAsync(user, model.Password, lockoutOnFailure: false);
+
+        if (result.Succeeded)
+        {
+            // 3. Now that we know the password is correct, check if email is confirmed
+            if (!user.EmailConfirmed)
+            {
+                // Show a specific error message
+                ModelState.AddModelError(string.Empty, "Your email address is not confirmed. Please confirm your email before logging in.");
+                model.ExternalLogins = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+                return View(model);
+            }
+
+            // 4. If email is confirmed, manually sign-in the user
+            await signInManager.SignInAsync(user, isPersistent: model.RememberMe);
+
+            // 5. Redirect user after successful sign in
+            if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+            {
+                return Redirect(model.ReturnUrl);
+            }
+
+            return RedirectToAction(nameof(HomeController.Index), "Home");
+        }
+        if (result.RequiresTwoFactor)
+        {
+            // Handle two-factor authentication case
+        }
+        if (result.IsLockedOut)
+        {
+            // Handle lockout scenario
+        }
+        else
+        {
+            // Generic failure message for invalid credentials
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+        }
+    }
+
+    // If we got this far, something failed, redisplay the login form
+    model.ExternalLogins = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+    return View(model);
+}
 
         /// <summary>
         /// /////////////////////////////////////// Logout ////////////////////////////////////
@@ -256,5 +294,297 @@ namespace Web.Controllers
             // display an error message and close the popup window.
             return Content($"<script>alert('Email claim not received. Please contact support.'); window.close();</script>", "text/html");
         }
+
+        /// <summary>
+        /////////////////////////////////////////////////// Xac nhan email ////////////////////////////////////////////////////////////// 
+        /// </summary>
+        private async Task SendConfirmationEmail(string email,User user)
+        {
+            // Generate the email confirmation token
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            // Save the token into the AspNetUserTokens database table
+            await userManager.SetAuthenticationTokenAsync(user, "EmailConfirmation", "EmailConfirmationToken", token);
+
+            // Build the confirmation callback URL
+            // protocol: HttpContext.Request.Scheme: Generate the fully qualified URL with domain
+            var confirmationLink = Url.Action("ConfirmEmail", "Account",
+                new { UserId = user.Id, Token = token }, protocol: HttpContext.Request.Scheme);
+
+            // Encode the link to prevent XSS and other injection attacks
+            var safeLink = HtmlEncoder.Default.Encode(confirmationLink);
+
+            // Craft a more polished email subject
+            var subject = "Welcome to Dot Net Tutorials! Please Confirm Your Email";
+
+            // Create a professional HTML body
+            // Customize inline styles, text, and branding as needed
+            var messageBody = $@"
+        <div style=""font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#333;"">
+            <p>Hi {user.UserName},</p>
+
+            <p>Thank you for creating an account at <strong>Dot Net Tutorials</strong>.
+            To start enjoying all of our features, please confirm your email address by clicking the button below:</p>
+
+            <p>
+                <a href=""{safeLink}"" 
+                   style=""background-color:#007bff;color:#fff;padding:10px 20px;text-decoration:none;
+                          font-weight:bold;border-radius:5px;display:inline-block;"">
+                    Confirm Email
+                </a>
+            </p>
+
+            <p>If the button doesn’t work for you, copy and paste the following URL into your browser:
+                <br />
+                <a href=""{safeLink}"" style=""color:#007bff;text-decoration:none;"">{safeLink}</a>
+            </p>
+
+            <p>If you did not sign up for this account, please ignore this email.</p>
+
+            <p>Thanks,<br />
+            The Dot Net Tutorials Team</p>
+        </div>
+    ";
+
+            //Send the Confirmation Email to the User Email Id
+            await emailSender.SendEmailAsync(email, subject, messageBody, true);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ConfirmEmail(string UserId, string Token)
+        {
+            if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(Token))
+            {
+                // Provide a descriptive error message for the view
+                ViewBag.ErrorMessage = "The link is invalid or has expired. Please request a new one if needed.";
+                return View();
+            }
+
+            //Find the User by Id
+            var user = await userManager.FindByIdAsync(UserId);
+            if (user == null)
+            {
+                // Provide a descriptive error for a missing user scenario
+                ViewBag.ErrorMessage = "We could not find a user associated with the given link.";
+                return View();
+            }
+
+            // Attempt to confirm the email
+            var result = await userManager.ConfirmEmailAsync(user, Token);
+
+            //Once the Email is Confirm, remove the token from the database
+            await userManager.RemoveAuthenticationTokenAsync(user, "EmailConfirmation", "EmailConfirmationToken");
+
+            if (result.Succeeded)
+            {
+                ViewBag.Message = "Thank you for confirming your email address. Your account is now verified!";
+                return View();
+            }
+
+            // If confirmation fails
+            ViewBag.ErrorMessage = "We were unable to confirm your email address. Please try again or request a new link.";
+            return View();
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ResendConfirmationEmail(bool IsResend = true)
+        {
+            if (IsResend)
+            {
+                ViewBag.Message = "Resend Confirmation Email";
+            }
+            else
+            {
+                ViewBag.Message = "Send Confirmation Email";
+            }
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendConfirmationEmail(string Email)
+        {
+            var user = await userManager.FindByEmailAsync(Email);
+            if (user == null || await userManager.IsEmailConfirmedAsync(user))
+            {
+                // Handle the situation when the user does not exist or Email already confirmed.
+                // For security, don't reveal that the user does not exist or Email is already confirmed
+                return View("ConfirmationEmailSent");
+            }
+
+            //Then send the Confirmation Email to the User
+            await SendConfirmationEmail(Email, user);
+
+            return View("ConfirmationEmailSent");
+        }
+
+        /// <summary>
+        ////////////////////////////////////////////////////////////////////////////////////////////////
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ForgotPassword()
+        {
+            return View();
+        }
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+        {
+            // Check if the model passes all validation rules (e.g., [Required], [EmailAddress]).
+            // If these rules fail, ModelState will contain errors.
+            if (ModelState.IsValid)
+            {
+                // Attempt to find a user in the database whose email address matches the one entered by the user.
+                var user = await userManager.FindByEmailAsync(model.Email);
+
+                // If a user is found
+                if (user != null)
+                {
+                    // Send the user an email containing a unique, secure link to reset their password.
+                    // This is done by generating a password reset token and building the appropriate URL.
+                    await SendForgotPasswordEmail(user.Email, user);
+
+                    // Redirect the user to the "ForgotPasswordConfirmation" page,
+                    // which typically displays a message that an email has been sent.
+                    return RedirectToAction("ForgotPasswordConfirmation", "Account");
+                }
+
+                // If the user was not found, we still redirect to "ForgotPasswordConfirmation" without revealing that the email does not exist.
+                // This approach helps prevent account enumeration and brute force attacks.
+                return RedirectToAction("ForgotPasswordConfirmation", "Account");
+            }
+
+            // If ModelState is not valid (e.g., the email field is empty or invalid),
+            // re-display the form so the user can correct the errors.
+            return View(model);
+        }
+        private async Task SendForgotPasswordEmail(string? email, User? user)
+        {
+            // Generate the reset password token
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Save the token into the AspNetUserTokens database table
+            await userManager.SetAuthenticationTokenAsync(user, "ResetPassword", "ResetPasswordToken", token);
+
+            // Build the password reset link
+            var passwordResetLink = Url.Action("ResetPassword", "Account",
+                new { Email = email, Token = token }, protocol: HttpContext.Request.Scheme);
+
+            // Encode the link to prevent XSS attacks
+            var safeLink = HtmlEncoder.Default.Encode(passwordResetLink);
+
+            // Create the email subject
+            var subject = "Reset Your Password";
+
+            // Craft HTML message body
+            var messageBody = $@"
+    <div style=""font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #333; line-height: 1.5; padding: 20px;"">
+        <h2 style=""color: #007bff; text-align: center;"">Password Reset Request</h2>
+        <p style=""margin-bottom: 20px;"">Hi {user.UserName},</p>
+        
+        <p>We received a request to reset your password for your <strong>Dot Net Tutorials</strong> account. If you made this request, please click the button below to reset your password:</p>
+        
+        <div style=""text-align: center; margin: 20px 0;"">
+            <a href=""{safeLink}"" 
+               style=""background-color: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;"">
+                Reset Password
+            </a>
+        </div>
+        
+        <p>If the button above doesn’t work, copy and paste the following URL into your browser:</p>
+        <p style=""background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"">
+            <a href=""{safeLink}"" style=""color: #007bff; text-decoration: none;"">{safeLink}</a>
+        </p>
+        
+        <p>If you did not request to reset your password, please ignore this email or contact support if you have concerns.</p>
+        
+        <p style=""margin-top: 30px;"">Thank you,<br />The Dot Net Tutorials Team</p>
+    </div>";
+
+            // Send the email
+            await emailSender.SendEmailAsync(email, subject, messageBody, IsBodyHtml: true);
+        }
+        [AllowAnonymous]
+        public ActionResult ForgotPasswordConfirmation()
+        {
+            return View();
+        }
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ResetPassword(string Token, string Email)
+        {
+            // If password reset token or email is null, most likely the
+            // user tried to tamper the password reset link
+            if (Token == null || Email == null)
+            {
+                ViewBag.ErrorTitle = "Invalid Password Reset Token";
+                ViewBag.ErrorMessage = "The Link is Expired or Invalid";
+                return View("Error");
+            }
+            else
+            {
+                ResetPasswordViewModel model = new ResetPasswordViewModel();
+                model.Token = Token;
+                model.Email = Email;
+                return View(model);
+            }
+        }
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            // Check if the incoming model passes all validation rules specified in the data annotations.
+            if (ModelState.IsValid)
+            {
+                // Find the user in the database using the provided email address.
+                var user = await userManager.FindByEmailAsync(model.Email);
+
+                // Proceed only if the user exists in the database.
+                if (user != null)
+                {
+                    // Attempt to reset the user's password using the token and the new password provided in the model.
+                    var result = await userManager.ResetPasswordAsync(user, model.Token, model.Password);
+
+                    //Once the Password is Reset, remove the token from the database
+                    await userManager.RemoveAuthenticationTokenAsync(user, "ResetPassword", "ResetPasswordToken");
+
+                    // If the password reset operation is successful, redirect the user to the Reset Password Confirmation page.
+                    if (result.Succeeded)
+                    {
+                        return RedirectToAction("ResetPasswordConfirmation", "Account");
+                    }
+
+                    // If the password reset fails, loop through the list of errors returned by Identity
+                    // and add them to the ModelState to display on the view.
+                    foreach (var error in result.Errors)
+                    {
+                        ModelState.AddModelError("", error.Description); // Add each error description to ModelState.
+                    }
+
+                    // Return the model back to the view so the user can fix any validation errors.
+                    return View(model);
+                }
+
+                // If the user is not found, redirect to the Reset Password Confirmation page to avoid
+                // revealing whether an account exists for the provided email.
+                // This approach prevents account enumeration attacks.
+                return RedirectToAction("ResetPasswordConfirmation", "Account");
+            }
+
+            // If the model state is invalid (e.g., missing or incorrect data), return the same view
+            // and display validation errors to the user.
+            return View(model);
+        }
+        [AllowAnonymous]
+        public ActionResult ResetPasswordConfirmation()
+        {
+            return View();
+        }
+        
     }
 }

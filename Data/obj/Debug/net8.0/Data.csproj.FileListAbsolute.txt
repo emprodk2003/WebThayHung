@@ -12,3 +12,4 @@ D:\Monweb\Shopthoitrang\Data\obj\Debug\net8.0\refint\Data.dll
 D:\Monweb\Shopthoitrang\Data\obj\Debug\net8.0\Data.pdb
 D:\Monweb\Shopthoitrang\Data\obj\Debug\net8.0\Data.genruntimeconfig.cache
 D:\Monweb\Shopthoitrang\Data\obj\Debug\net8.0\ref\Data.dll
+D:\Monweb\Shopthoitrang\Data\obj\Debug\net8.0\Data.sourcelink.json

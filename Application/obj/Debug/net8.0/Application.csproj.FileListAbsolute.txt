@@ -9,3 +9,5 @@ D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.dll
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\refint\Application.dll
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.pdb
 D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\ref\Application.dll
+D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.sourcelink.json
+D:\Monweb\Shopthoitrang\Application\obj\Debug\net8.0\Application.csproj.AssemblyReference.cache
